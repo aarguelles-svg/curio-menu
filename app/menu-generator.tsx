@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 
 type MenuItem = { id: number; name: string; price: string };
 const publicBase = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+const maxMenuItems = 12;
 
 const initialItems: MenuItem[] = Array.from({ length: 8 }, (_, index) => ({
   id: index + 1,
@@ -106,7 +107,18 @@ export default function Home() {
   }
 
   function addItem() {
-    setItems((current) => [...current, { id: nextId, name: '', price: '' }]);
+    setItems((current) => current.length >= maxMenuItems ? current : [...current, { id: nextId, name: '', price: '' }]);
+  }
+
+  function setItemCount(count: number) {
+    setItems((current) => {
+      if (count <= current.length) return current.slice(0, count);
+      let id = Math.max(0, ...current.map((item) => item.id)) + 1;
+      return [
+        ...current,
+        ...Array.from({ length: count - current.length }, () => ({ id: id++, name: '', price: '' })),
+      ];
+    });
   }
 
   async function exportPng() {
@@ -160,9 +172,10 @@ export default function Home() {
               <div className="menu-title"><span>{date || '[DATE]'} MENU</span><strong>{category || 'MAINS'}</strong></div>
               <img className="wave-mascot" src={`${publicBase}/assets/wave-mascot.png`} alt="Waving mascot" />
               <div className="menu-list" ref={menuListRef}>
-                {items.length ? items.map((item) => (
+                {items.length ? items.map((item, index) => (
                   <div className="story-menu-row" key={item.id}>
-                    <span>{item.name}</span><em>{item.price ? `P${item.price}` : ''}</em>
+                    <span className={item.name ? undefined : 'is-placeholder'}>{item.name || `Menu item ${index + 1}`}</span>
+                    <em className={item.price ? undefined : 'is-placeholder'}>{item.price ? `P${item.price}` : 'P-'}</em>
                   </div>
                 )) : <div className="empty-menu">Add your first menu item</div>}
               </div>
@@ -191,7 +204,19 @@ export default function Home() {
 
           <section className="settings-section" aria-labelledby="items-heading">
             <div className="section-heading">
-              <div><h3 id="items-heading">Menu items</h3><p>{items.length} {items.length === 1 ? 'item' : 'items'}</p></div>
+              <div>
+                <h3 id="items-heading">Menu items</h3>
+                <select
+                  className="item-count-select"
+                  aria-label="Number of menu items"
+                  value={items.length}
+                  onChange={(event) => setItemCount(Number(event.target.value))}
+                >
+                  {Array.from({ length: maxMenuItems }, (_, index) => index + 1).map((count) => (
+                    <option value={count} key={count}>{count} {count === 1 ? 'item' : 'items'}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="item-editor-list">
               {items.map((item, index) => (
@@ -229,11 +254,11 @@ export default function Home() {
                     </label>
                   </div>
                   <div className="item-actions">
-                    <Button variant="ghost" size="icon-sm" className="delete-button" aria-label={`Remove ${item.name}`} onClick={() => setItems((current) => current.filter((entry) => entry.id !== item.id))}><Trash2 /></Button>
+                    <Button variant="ghost" size="icon-sm" className="delete-button" aria-label={`Remove ${item.name || `item ${index + 1}`}`} disabled={items.length === 1} onClick={() => setItems((current) => current.filter((entry) => entry.id !== item.id))}><Trash2 /></Button>
                   </div>
                 </div>
               ))}
-              <button className="add-item-row" onClick={addItem}><span className="add-item-tab"><Plus /></span><span>Add menu item</span></button>
+              <button className="add-item-row" onClick={addItem} disabled={items.length >= maxMenuItems}><span className="add-item-tab"><Plus /></span><span>{items.length >= maxMenuItems ? 'Maximum 12 items' : 'Add menu item'}</span></button>
             </div>
           </section>
         </div>
