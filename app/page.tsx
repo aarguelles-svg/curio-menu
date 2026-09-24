@@ -19,9 +19,13 @@ const initialItems: MenuItem[] = [
   { id: 8, name: 'Calamansi Juice', price: 'P140' },
 ];
 
+function formatToday() {
+  return new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric' }).format(new Date());
+}
+
 export default function Home() {
   const [items, setItems] = useState(initialItems);
-  const [date, setDate] = useState('TODAY’S');
+  const [date, setDate] = useState(formatToday);
   const [category, setCategory] = useState('MAINS');
   const [phone, setPhone] = useState('+63 917 102 0722');
   const [previewScale, setPreviewScale] = useState(1);
@@ -129,11 +133,16 @@ export default function Home() {
         </div>
         <div className="story-stage">
           <div className="story-viewport" ref={viewportRef}>
-          <article ref={storyRef} className="story" style={{ transform: `scale(${previewScale})` }} aria-label="Generated daily menu preview">
+          <article
+            ref={storyRef}
+            className="story"
+            style={{ transform: `scale(${previewScale})`, '--item-count': Math.max(items.length, 1) } as React.CSSProperties}
+            aria-label="Generated daily menu preview"
+          >
             <div className="menu-card">
               <div className="menu-title"><span>{date || '[DATE]'} MENU</span><strong>{category || 'MAINS'}</strong></div>
               <img className="wave-mascot" src="/assets/wave-mascot.png" alt="Waving mascot" />
-              <div className="menu-list" style={{ '--item-count': Math.max(items.length, 1) } as React.CSSProperties}>
+              <div className="menu-list">
                 {items.length ? items.map((item) => (
                   <div className="story-menu-row" key={item.id}>
                     <span>{item.name || 'Untitled item'}</span><em>{item.price || '—'}</em>
@@ -142,7 +151,7 @@ export default function Home() {
               </div>
             </div>
             <img className="point-mascot" src="/assets/point-mascot.png" alt="Pointing mascot" />
-            <div className="story-contact"><span>Come visit or call us to order:</span><strong>{phone || '+63 917 102 0722'}</strong></div>
+            <div className="story-contact"><div className="contact-copy"><span>Come visit or call us to order:</span><strong>{phone || '+63 917 102 0722'}</strong></div></div>
           </article>
           </div>
         </div>
@@ -157,7 +166,7 @@ export default function Home() {
           <section className="settings-section" aria-labelledby="details-heading">
             <div className="section-heading"><h3 id="details-heading">Story details</h3></div>
             <div className="detail-grid">
-              <label><span>Date label</span><Input value={date} onChange={(event) => setDate(event.target.value)} /></label>
+              <label><span>Today’s date</span><Input value={date} onChange={(event) => setDate(event.target.value)} /></label>
               <label><span>Category</span><Input value={category} onChange={(event) => setCategory(event.target.value)} /></label>
               <label className="phone-field"><span>Order phone</span><Input value={phone} onChange={(event) => setPhone(event.target.value)} /></label>
             </div>
