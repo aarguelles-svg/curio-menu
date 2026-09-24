@@ -33,11 +33,13 @@ export default function Home() {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [menuContentHeight, setMenuContentHeight] = useState(initialItems.length * 112);
   const viewportRef = useRef<HTMLDivElement>(null);
   const storyRef = useRef<HTMLElement>(null);
+  const menuListRef = useRef<HTMLDivElement>(null);
   const nextId = useMemo(() => Math.max(0, ...items.map((item) => item.id)) + 1, [items]);
   const storyItemCount = Math.max(items.length, 1);
-  const menuHeight = 172 + storyItemCount * 112;
+  const menuHeight = 172 + menuContentHeight;
   const cardTop = 346 - (menuHeight - 1068) / 2;
 
   useEffect(() => {
@@ -47,6 +49,16 @@ export default function Home() {
     resize();
     const observer = new ResizeObserver(resize);
     observer.observe(viewport);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const menuList = menuListRef.current;
+    if (!menuList) return;
+    const measure = () => setMenuContentHeight(menuList.scrollHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(menuList);
     return () => observer.disconnect();
   }, []);
 
@@ -152,7 +164,7 @@ export default function Home() {
             <div className="menu-card">
               <div className="menu-title"><span>{date || '[DATE]'} MENU</span><strong>{category || 'MAINS'}</strong></div>
               <img className="wave-mascot" src={`${publicBase}/assets/wave-mascot.png`} alt="Waving mascot" />
-              <div className="menu-list">
+              <div className="menu-list" ref={menuListRef}>
                 {items.length ? items.map((item) => (
                   <div className="story-menu-row" key={item.id}>
                     <span>{item.name || 'Untitled item'}</span><em>{item.price || '—'}</em>
