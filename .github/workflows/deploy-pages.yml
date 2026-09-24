@@ -36,6 +36,10 @@ jobs:
             export NEXT_PUBLIC_BASE_PATH="/${{ github.event.repository.name }}"
           fi
           pnpm build
+          if [[ -n "$NEXT_PUBLIC_BASE_PATH" && -d "dist/client${NEXT_PUBLIC_BASE_PATH}/_next" ]]; then
+            mv "dist/client${NEXT_PUBLIC_BASE_PATH}/_next" dist/client/_next
+            rmdir "dist/client${NEXT_PUBLIC_BASE_PATH}"
+          fi
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
