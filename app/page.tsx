@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Plus, Trash2, UtensilsCrossed } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Download, GripVertical, LoaderCircle, Plus, Trash2, UtensilsCrossed } from 'lucide-react';
+import { toPng } from 'html-to-image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -23,7 +24,23 @@ export default function Home() {
   const [date, setDate] = useState('TODAY’S');
   const [category, setCategory] = useState('MAINS');
   const [phone, setPhone] = useState('+63 917 102 0722');
+  const [previewScale, setPreviewScale] = useState(1);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const storyRef = useRef<HTMLElement>(null);
   const nextId = useMemo(() => Math.max(0, ...items.map((item) => item.id)) + 1, [items]);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const resize = () => setPreviewScale(viewport.clientWidth / 1080);
+    resize();
+    const observer = new ResizeObserver(resize);
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const modelContext = (document as Document & {
@@ -63,12 +80,12 @@ export default function Home() {
     setItems((current) => current.map((item) => item.id === id ? { ...item, [field]: value } : item));
   }
 
-  function moveItem(index: number, direction: -1 | 1) {
-    const target = index + direction;
-    if (target < 0 || target >= items.length) return;
+  function moveItem(from: number, to: number) {
+    if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) return;
     setItems((current) => {
       const updated = [...current];
-      [updated[index], updated[target]] = [updated[target], updated[index]];
+      const [moved] = updated.splice(from, 1);
+      updated.splice(to, 0, moved);
       return updated;
     });
   }
@@ -77,15 +94,42 @@ export default function Home() {
     setItems((current) => [...current, { id: nextId, name: `Menu Item ${current.length + 1}`, price: 'Pxxx' }]);
   }
 
+  async function exportPng() {
+    if (!storyRef.current || isExporting) return;
+    setIsExporting(true);
+    try {
+      await document.fonts.ready;
+      const dataUrl = await toPng(storyRef.current, {
+        width: 1080,
+        height: 1920,
+        pixelRatio: 1,
+        cacheBust: true,
+        style: { transform: 'none' },
+      });
+      const link = document.createElement('a');
+      link.download = `${(date || 'daily').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-menu.png`;
+      link.href = dataUrl;
+      link.click();
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
   return (
     <main className="app-shell">
       <section className="preview-pane" aria-labelledby="preview-title">
         <div className="preview-heading">
           <div><p className="eyebrow">Live preview</p><h1 id="preview-title">Instagram Story</h1></div>
-          <span className="size-label">1080 × 1920</span>
+          <div className="preview-actions">
+            <span className="size-label">1080 × 1920</span>
+            <Button className="export-button" onClick={exportPng} disabled={isExporting}>
+              {isExporting ? <LoaderCircle className="spin" /> : <Download />} {isExporting ? 'Exporting…' : 'Export PNG'}
+            </Button>
+          </div>
         </div>
         <div className="story-stage">
-          <article className="story" aria-label="Generated daily menu preview">
+          <div className="story-viewport" ref={viewportRef}>
+          <article ref={storyRef} className="story" style={{ transform: `scale(${previewScale})` }} aria-label="Generated daily menu preview">
             <div className="menu-card">
               <div className="menu-title"><span>{date || '[DATE]'} MENU</span><strong>{category || 'MAINS'}</strong></div>
               <img className="wave-mascot" src="/assets/wave-mascot.png" alt="Waving mascot" />
@@ -100,6 +144,7 @@ export default function Home() {
             <img className="point-mascot" src="/assets/point-mascot.png" alt="Pointing mascot" />
             <div className="story-contact"><span>Come visit or call us to order:</span><strong>{phone || '+63 917 102 0722'}</strong></div>
           </article>
+          </div>
         </div>
       </section>
 
@@ -121,23 +166,37 @@ export default function Home() {
           <section className="settings-section" aria-labelledby="items-heading">
             <div className="section-heading">
               <div><h3 id="items-heading">Menu items</h3><p>{items.length} {items.length === 1 ? 'item' : 'items'}</p></div>
-              <Button className="add-button" onClick={addItem} size="lg"><Plus aria-hidden="true" /> Add item</Button>
             </div>
             <div className="item-editor-list">
               {items.map((item, index) => (
-                <div className="item-editor" key={item.id}>
-                  <span className="item-number">{String(index + 1).padStart(2, '0')}</span>
+                <div
+                  className={`item-editor${dragOverIndex === index ? ' is-drag-over' : ''}${draggedIndex === index ? ' is-dragging' : ''}`}
+                  key={item.id}
+                  onDragOver={(event) => { event.preventDefault(); setDragOverIndex(index); }}
+                  onDragLeave={() => setDragOverIndex((current) => current === index ? null : current)}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    if (draggedIndex !== null) moveItem(draggedIndex, index);
+                    setDraggedIndex(null); setDragOverIndex(null);
+                  }}
+                >
+                  <button
+                    className="drag-handle"
+                    draggable
+                    aria-label={`Drag to reorder ${item.name}`}
+                    onDragStart={(event) => { setDraggedIndex(index); event.dataTransfer.effectAllowed = 'move'; }}
+                    onDragEnd={() => { setDraggedIndex(null); setDragOverIndex(null); }}
+                  ><GripVertical /></button>
                   <div className="item-fields">
                     <label><span className="sr-only">Item {index + 1} name</span><Input value={item.name} placeholder="Item name" onChange={(event) => updateItem(item.id, 'name', event.target.value)} /></label>
                     <label><span className="sr-only">Item {index + 1} price</span><Input className="price-input" value={item.price} placeholder="Price" onChange={(event) => updateItem(item.id, 'price', event.target.value)} /></label>
                   </div>
-                  <div className="item-actions" aria-label={`Reorder or remove ${item.name}`}>
-                    <Button variant="ghost" size="icon-sm" aria-label={`Move ${item.name} up`} disabled={index === 0} onClick={() => moveItem(index, -1)}><ArrowUp /></Button>
-                    <Button variant="ghost" size="icon-sm" aria-label={`Move ${item.name} down`} disabled={index === items.length - 1} onClick={() => moveItem(index, 1)}><ArrowDown /></Button>
+                  <div className="item-actions">
                     <Button variant="ghost" size="icon-sm" className="delete-button" aria-label={`Remove ${item.name}`} onClick={() => setItems((current) => current.filter((entry) => entry.id !== item.id))}><Trash2 /></Button>
                   </div>
                 </div>
               ))}
+              <button className="add-item-row" onClick={addItem}><span className="add-item-tab"><Plus /></span><span>Add menu item</span></button>
             </div>
           </section>
         </div>
