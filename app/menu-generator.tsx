@@ -36,6 +36,9 @@ export default function Home() {
   const viewportRef = useRef<HTMLDivElement>(null);
   const storyRef = useRef<HTMLElement>(null);
   const nextId = useMemo(() => Math.max(0, ...items.map((item) => item.id)) + 1, [items]);
+  const storyItemCount = Math.max(items.length, 1);
+  const menuHeight = 172 + storyItemCount * 112;
+  const cardTop = 346 - (menuHeight - 1068) / 2;
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -139,7 +142,9 @@ export default function Home() {
             className="story"
             style={{
               transform: `scale(${previewScale})`,
-              '--item-count': Math.max(items.length, 1),
+              '--item-count': storyItemCount,
+              '--menu-height': `${menuHeight}px`,
+              '--card-top': `${cardTop}px`,
               backgroundImage: `url('${publicBase}/assets/noise-bg.png')`,
             } as React.CSSProperties}
             aria-label="Generated daily menu preview"

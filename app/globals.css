@@ -35,8 +35,8 @@ h3 { margin-bottom: 0; font-size: 15px; line-height: 1.3; }
 .story-stage { min-height: 0; flex: 1; display: grid; place-items: center; }
 
 .story-viewport { width: min(100%, calc((100dvh - 110px) * .5625)); aspect-ratio: 9 / 16; position: relative; overflow: hidden; box-shadow: 0 24px 70px rgb(57 39 24 / 20%), 0 2px 6px rgb(57 39 24 / 8%); }
-.story { --menu-height: calc(172px + var(--item-count) * 112px); position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; transform-origin: top left; overflow: hidden; background-color: var(--canvas); background-position: center; background-size: cover; }
-.menu-card { position: absolute; top: 346px; left: 60px; width: 960px; height: var(--menu-height); border: 2px solid var(--orange); border-radius: 101px; background: var(--card); box-shadow: 17px 20px 0 var(--orange); padding: 110px 48px 60px; }
+.story { --menu-height: 1068px; --card-top: 346px; position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; transform-origin: top left; overflow: hidden; background-color: var(--canvas); background-position: center; background-size: cover; }
+.menu-card { position: absolute; top: var(--card-top); left: 60px; width: 960px; height: var(--menu-height); border: 2px solid var(--orange); border-radius: 101px; background: var(--card); box-shadow: 17px 20px 0 var(--orange); padding: 110px 48px 60px; }
 .menu-title { position: absolute; z-index: 3; top: -77px; left: 99px; width: 613px; height: 154px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 90px; background: var(--orange); color: var(--card); box-shadow: 8px 10px 0 var(--deep-orange); line-height: 1.12; text-transform: uppercase; }
 .menu-title span { font-size: 38px; font-weight: 500; }
 .menu-title strong { font-family: var(--font-tilt), sans-serif; font-size: 70px; letter-spacing: -.01em; }
@@ -48,8 +48,8 @@ h3 { margin-bottom: 0; font-size: 15px; line-height: 1.3; }
 .story-menu-row span { min-width: 0; flex: 1; overflow-wrap: anywhere; font-weight: 700; }
 .story-menu-row em { flex: 0 0 auto; font-style: normal; font-weight: 400; }
 .empty-menu { height: 110px; display: grid; place-items: center; color: rgb(196 78 12 / 55%); font-size: 46px; font-weight: 600; }
-.point-mascot { position: absolute; z-index: 5; top: calc(386px + var(--menu-height) - 187px); left: -14px; width: 404px; height: 404px; object-fit: contain; transform: rotate(-8.29deg); }
-.story-contact { position: absolute; top: calc(386px + var(--menu-height)); left: 60px; width: 960px; height: 120px; display: flex; align-items: flex-start; justify-content: flex-end; padding-right: 40px; color: var(--orange); line-height: 1.36; white-space: nowrap; }
+.point-mascot { position: absolute; z-index: 5; top: calc(var(--card-top) + var(--menu-height) - 147px); left: -14px; width: 404px; height: 404px; object-fit: contain; transform: rotate(-8.29deg); }
+.story-contact { position: absolute; top: calc(var(--card-top) + var(--menu-height) + 40px); left: 60px; width: 960px; height: 120px; display: flex; align-items: flex-start; justify-content: flex-end; padding-right: 40px; color: var(--orange); line-height: 1.36; white-space: nowrap; }
 .contact-copy { width: 580px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .story-contact span { font-size: 42px; }
 .story-contact strong { font-size: 46px; }
