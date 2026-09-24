@@ -9,16 +9,11 @@ import { Input } from '@/components/ui/input';
 type MenuItem = { id: number; name: string; price: string };
 const publicBase = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 
-const initialItems: MenuItem[] = [
-  { id: 1, name: 'Chicken Inasal', price: 'P380' },
-  { id: 2, name: 'Beef Caldereta', price: 'P420' },
-  { id: 3, name: 'Pork Adobo', price: 'P360' },
-  { id: 4, name: 'Crispy Bangus', price: 'P395' },
-  { id: 5, name: 'Laing', price: 'P260' },
-  { id: 6, name: 'Garlic Rice', price: 'P120' },
-  { id: 7, name: 'Leche Flan', price: 'P180' },
-  { id: 8, name: 'Calamansi Juice', price: 'P140' },
-];
+const initialItems: MenuItem[] = Array.from({ length: 8 }, (_, index) => ({
+  id: index + 1,
+  name: '',
+  price: '',
+}));
 
 function formatToday() {
   return new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric' }).format(new Date());
@@ -87,7 +82,7 @@ export default function Home() {
         const normalized = value.items.map((entry, index) => {
           const item = entry as { name?: unknown; price?: unknown };
           if (typeof item.name !== 'string' || typeof item.price !== 'string') throw new Error(`Menu item ${index + 1} needs a name and price.`);
-          return { id: index + 1, name: item.name, price: item.price };
+          return { id: index + 1, name: item.name, price: item.price.replace(/\D/g, '') };
         });
         setDate(value.date); setCategory(value.category); setPhone(value.phone); setItems(normalized);
         return { status: 'updated', itemCount: normalized.length };
@@ -111,7 +106,7 @@ export default function Home() {
   }
 
   function addItem() {
-    setItems((current) => [...current, { id: nextId, name: `Menu Item ${current.length + 1}`, price: 'Pxxx' }]);
+    setItems((current) => [...current, { id: nextId, name: '', price: '' }]);
   }
 
   async function exportPng() {
@@ -167,7 +162,7 @@ export default function Home() {
               <div className="menu-list" ref={menuListRef}>
                 {items.length ? items.map((item) => (
                   <div className="story-menu-row" key={item.id}>
-                    <span>{item.name || 'Untitled item'}</span><em>{item.price || '—'}</em>
+                    <span>{item.name}</span><em>{item.price ? `P${item.price}` : ''}</em>
                   </div>
                 )) : <div className="empty-menu">Add your first menu item</div>}
               </div>
@@ -220,7 +215,18 @@ export default function Home() {
                   ><GripVertical /></button>
                   <div className="item-fields">
                     <label><span className="sr-only">Item {index + 1} name</span><Input value={item.name} placeholder="Item name" onChange={(event) => updateItem(item.id, 'name', event.target.value)} /></label>
-                    <label><span className="sr-only">Item {index + 1} price</span><Input className="price-input" value={item.price} placeholder="Price" onChange={(event) => updateItem(item.id, 'price', event.target.value)} /></label>
+                    <label className="price-field">
+                      <span className="sr-only">Item {index + 1} price</span>
+                      <span className="price-prefix" aria-hidden="true">P</span>
+                      <Input
+                        className="price-input"
+                        value={item.price}
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        placeholder="0"
+                        onChange={(event) => updateItem(item.id, 'price', event.target.value.replace(/\D/g, ''))}
+                      />
+                    </label>
                   </div>
                   <div className="item-actions">
                     <Button variant="ghost" size="icon-sm" className="delete-button" aria-label={`Remove ${item.name}`} onClick={() => setItems((current) => current.filter((entry) => entry.id !== item.id))}><Trash2 /></Button>

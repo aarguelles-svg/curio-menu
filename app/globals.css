@@ -81,7 +81,9 @@ h3 { margin-bottom: 0; font-size: 15px; line-height: 1.3; }
 .item-fields { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) 92px; gap: 8px; }
 .item-fields [data-slot='input'] { height: 36px; border-color: transparent; background: #f8f5ef; }
 .item-fields [data-slot='input']:focus-visible { border-color: var(--orange); background: white; }
-.price-input { text-align: right; }
+.price-field { position: relative; }
+.price-prefix { position: absolute; z-index: 1; top: 50%; left: 11px; transform: translateY(-50%); color: var(--muted-ink); font-size: 13px; font-weight: 650; pointer-events: none; }
+.item-fields .price-input { padding-left: 26px; text-align: right; }
 .item-actions { display: flex; align-items: center; gap: 1px; }
 .item-actions button { color: #81756d; }
 .item-actions button:hover { background: #f3eee7; color: var(--orange); }
