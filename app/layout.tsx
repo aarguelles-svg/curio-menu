@@ -6,8 +6,8 @@ const lexend = Lexend_Deca({ variable: '--font-lexend', subsets: ['latin'] });
 const tiltWarp = Tilt_Warp({ variable: '--font-tilt', subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Daily Menu Story Generator',
-  description: 'Create and reorder a daily restaurant menu for Instagram Stories.',
+  title: 'Curio Menu Generator',
+  description: 'Create Curio daily menus for Instagram Stories and the restaurant TV.',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
