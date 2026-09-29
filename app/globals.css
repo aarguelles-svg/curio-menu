@@ -144,6 +144,8 @@ h3 { margin-bottom: 0; font-size: 15px; line-height: 1.3; }
 .tv-main-card { left: 70px; }
 .tv-heat-card { left: 692.5px; }
 .tv-card-title { position: absolute; z-index: 2; top: -28px; left: 41px; width: 358px; height: 84px; display: grid; place-items: center; border-radius: 40px; background: var(--orange); color: var(--card); box-shadow: 4px 4px 0 var(--deep-orange); font-family: var(--font-tilt), sans-serif; font-size: 48px; line-height: 1; }
+.tv-card-title.is-editable { cursor: text; user-select: none; }
+.tv-card-title-input { width: calc(100% - 36px); border: 0; outline: 0; background: transparent; color: inherit; font: inherit; line-height: inherit; text-align: center; text-transform: none; }
 .tv-menu-list { width: 100%; height: 734px; overflow: hidden; display: flex; flex-direction: column; }
 .tv-menu-row { min-height: 64px; flex: 0 0 auto; display: flex; align-items: center; gap: 12px; border-bottom: 2px solid var(--orange); padding: 8px 12px; font-size: 34px; line-height: 1.36; letter-spacing: -.34px; }
 .tv-menu-row:last-child { border-bottom: 0; }

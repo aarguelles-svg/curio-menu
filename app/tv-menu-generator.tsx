@@ -22,6 +22,11 @@ type MediaRow = {
   created_at: string;
 };
 type MediaSlide = MediaRow & { url: string };
+type TvSettings = {
+  qr_path?: string | null;
+  mains_title?: string | null;
+  heat_eat_title?: string | null;
+};
 
 const publicBase = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 const menuCountMax = 12;
@@ -98,6 +103,10 @@ export default function TvMenuGenerator() {
   const [activeSlide, setActiveSlide] = useState(0);
   const [qrPath, setQrPath] = useState<string | null>(null);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [mainsTitle, setMainsTitle] = useState('MAINS');
+  const [heatEatTitle, setHeatEatTitle] = useState('HEAT & EAT');
+  const [editingTitle, setEditingTitle] = useState<'mains' | 'heat-eat' | null>(null);
+  const [titleDraft, setTitleDraft] = useState('');
   const [previewScale, setPreviewScale] = useState(1);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState('');
@@ -112,7 +121,7 @@ export default function TvMenuGenerator() {
   const loadLibrary = useCallback(async () => {
     const [{ data: media, error: mediaError }, { data: settings, error: settingsError }] = await Promise.all([
       supabase.from('tv_media').select('*').order('sort_order').order('created_at'),
-      supabase.from('tv_settings').select('qr_path').eq('id', 1).maybeSingle(),
+      supabase.from('tv_settings').select('qr_path, mains_title, heat_eat_title').eq('id', 1).maybeSingle(),
     ]);
     if (mediaError || settingsError) {
       setSetupNeeded(true);
@@ -121,8 +130,11 @@ export default function TvMenuGenerator() {
     }
     setSetupNeeded(false);
     setSlides((media ?? []).map((row) => ({ ...(row as MediaRow), url: publicUrl((row as MediaRow).storage_path) })));
-    const path = (settings as { qr_path?: string | null } | null)?.qr_path ?? null;
+    const savedSettings = settings as TvSettings | null;
+    const path = savedSettings?.qr_path ?? null;
     setQrPath(path); setQrUrl(path ? publicUrl(path) : null);
+    setMainsTitle(savedSettings?.mains_title?.trim() || 'MAINS');
+    setHeatEatTitle(savedSettings?.heat_eat_title?.trim() || 'HEAT & EAT');
   }, [publicUrl]);
 
   useEffect(() => {
@@ -174,6 +186,33 @@ export default function TvMenuGenerator() {
     const { error } = await supabase.from('tv_settings').update({ qr_path: path, updated_at: new Date().toISOString() }).eq('id', 1);
     if (!error && qrPath) await supabase.storage.from(tvMediaBucket).remove([qrPath]);
     setBusy(null); setMessage(error ? error.message : 'QR code updated for every device.'); await loadLibrary();
+  }
+
+  function beginTitleEdit(section: 'mains' | 'heat-eat') {
+    if (!session) {
+      setMessage('Sign in with a staff account to edit shared TV headers.');
+      return;
+    }
+    setTitleDraft(section === 'mains' ? mainsTitle : heatEatTitle);
+    setEditingTitle(section);
+  }
+
+  async function saveTitle(section: 'mains' | 'heat-eat') {
+    const fallback = section === 'mains' ? 'MAINS' : 'HEAT & EAT';
+    const nextTitle = titleDraft.trim().slice(0, 24) || fallback;
+    const previousTitle = section === 'mains' ? mainsTitle : heatEatTitle;
+    const column = section === 'mains' ? 'mains_title' : 'heat_eat_title';
+    if (section === 'mains') setMainsTitle(nextTitle); else setHeatEatTitle(nextTitle);
+    setEditingTitle(null);
+    if (nextTitle === previousTitle) return;
+    setMessage('Saving shared TV header…');
+    const { error } = await supabase.from('tv_settings').update({ [column]: nextTitle, updated_at: new Date().toISOString() }).eq('id', 1);
+    if (error) {
+      if (section === 'mains') setMainsTitle(previousTitle); else setHeatEatTitle(previousTitle);
+      setMessage(error.message);
+      return;
+    }
+    setMessage('TV header saved for every device.');
   }
 
   async function updateSlide(id: string, patch: Partial<Pick<MediaRow, 'duration_seconds' | 'sort_order'>>) {
@@ -254,8 +293,8 @@ export default function TvMenuGenerator() {
       <section className="preview-pane" aria-labelledby="tv-preview-title">
         <div className="preview-heading"><div><p className="eyebrow">Live preview</p><h1 id="tv-preview-title">TV Menu</h1></div><div className="preview-actions"><span className="size-label">1920 × 1080</span><Button className="export-button" onClick={exportGif} disabled={Boolean(busy)}>{busy === 'export' ? <LoaderCircle className="spin" /> : <Download />}{busy === 'export' ? 'Exporting…' : 'Export GIF'}</Button></div></div>
         <div className="tv-stage"><div className="tv-viewport" ref={viewportRef}><article ref={tvRef} className={`tv-canvas${exportTemplate ? ' is-export-template' : ''}`} style={{ transform: `scale(${previewScale})`, backgroundImage: `url('${publicBase}/assets/noise-bg-tv.png')` }}>
-          <div className="tv-menu-card tv-main-card"><div className="tv-card-title">MAINS</div><div className="tv-menu-list">{mains.map((item, index) => <div className="tv-menu-row" key={item.id}><strong className={item.name ? '' : 'is-placeholder'}>{item.name || `Menu item ${index + 1}`}</strong><span className={item.price ? '' : 'is-placeholder'}>{item.price ? `P${item.price}` : 'P-'}</span></div>)}</div></div>
-          <div className="tv-menu-card tv-heat-card"><div className="tv-card-title">HEAT &amp; EAT</div><div className="tv-menu-list">{heatEat.map((item, index) => <div className="tv-menu-row" key={item.id}><strong className={item.name ? '' : 'is-placeholder'}>{item.name || `Menu item ${index + 1}`}</strong><span className={item.price ? '' : 'is-placeholder'}>{item.price ? `P${item.price}` : 'P-'}</span></div>)}</div></div>
+          <div className="tv-menu-card tv-main-card"><div className="tv-card-title is-editable" role="button" tabIndex={0} title="Double-click to edit" aria-label="Mains header. Double-click to edit." onDoubleClick={() => beginTitleEdit('mains')} onKeyDown={(event) => { if (event.key === 'Enter') beginTitleEdit('mains'); }}>{editingTitle === 'mains' ? <input className="tv-card-title-input" autoFocus maxLength={24} value={titleDraft} aria-label="Edit Mains header" onChange={(event) => setTitleDraft(event.target.value)} onBlur={() => void saveTitle('mains')} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} /> : mainsTitle}</div><div className="tv-menu-list">{mains.map((item, index) => <div className="tv-menu-row" key={item.id}><strong className={item.name ? '' : 'is-placeholder'}>{item.name || `Menu item ${index + 1}`}</strong><span className={item.price ? '' : 'is-placeholder'}>{item.price ? `P${item.price}` : 'P-'}</span></div>)}</div></div>
+          <div className="tv-menu-card tv-heat-card"><div className="tv-card-title is-editable" role="button" tabIndex={0} title="Double-click to edit" aria-label="Heat and Eat header. Double-click to edit." onDoubleClick={() => beginTitleEdit('heat-eat')} onKeyDown={(event) => { if (event.key === 'Enter') beginTitleEdit('heat-eat'); }}>{editingTitle === 'heat-eat' ? <input className="tv-card-title-input" autoFocus maxLength={24} value={titleDraft} aria-label="Edit Heat and Eat header" onChange={(event) => setTitleDraft(event.target.value)} onBlur={() => void saveTitle('heat-eat')} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} /> : heatEatTitle}</div><div className="tv-menu-list">{heatEat.map((item, index) => <div className="tv-menu-row" key={item.id}><strong className={item.name ? '' : 'is-placeholder'}>{item.name || `Menu item ${index + 1}`}</strong><span className={item.price ? '' : 'is-placeholder'}>{item.price ? `P${item.price}` : 'P-'}</span></div>)}</div></div>
           <div className="tv-media-card"><div className="tv-media-inner">{currentSlide && <img src={currentSlide.url} alt={currentSlide.file_name} />}{!currentSlide && <div className="tv-media-empty">Your offers<br />will appear here</div>}</div></div>
           <div className="tv-social-card"><div className="tv-social-copy">Follow us<br />for updates!<br /><strong>@curio.eats</strong></div><div className="tv-qr-box">{qrUrl ? <img src={qrUrl} alt="Curio QR code" /> : <span>Upload<br />QR code</span>}</div></div>
           <img className="tv-wave-mascot" src={`${publicBase}/assets/wave-mascot.png`} alt="" /><img className="tv-point-mascot" src={`${publicBase}/assets/point-mascot.png`} alt="" />
