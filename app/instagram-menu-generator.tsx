@@ -5,8 +5,8 @@ import { Download, GripVertical, LoaderCircle, Plus, Trash2, UtensilsCrossed } f
 import { toPng } from 'html-to-image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import type { MenuItem } from './menu-types';
 
-type MenuItem = { id: number; name: string; price: string };
 const publicBase = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 const maxMenuItems = 12;
 
@@ -20,8 +20,7 @@ function formatToday() {
   return new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric' }).format(new Date());
 }
 
-export default function InstagramMenuGenerator() {
-  const [items, setItems] = useState(initialItems);
+export default function InstagramMenuGenerator({ items, setItems }: { items: MenuItem[]; setItems: React.Dispatch<React.SetStateAction<MenuItem[]>> }) {
   const [date, setDate] = useState(formatToday);
   const [category, setCategory] = useState('MAINS');
   const [phone, setPhone] = useState('+63 917 102 0722');

@@ -9,8 +9,8 @@ import { decompressFrames, parseGIF } from 'gifuct-js';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase, tvMediaBucket } from '@/lib/supabase';
+import type { MenuItem } from './menu-types';
 
-type MenuItem = { id: number; name: string; price: string };
 type MediaRow = {
   id: string;
   storage_path: string;
@@ -31,7 +31,6 @@ type TvSettings = {
 const publicBase = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 const productionUrl = 'https://aarguelles-svg.github.io/curio-menu/';
 const menuCountMax = 12;
-const blankItems = () => Array.from({ length: 8 }, (_, index) => ({ id: index + 1, name: '', price: '' }));
 
 function safeFileName(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '');
@@ -94,9 +93,12 @@ function ItemEditor({ title, items, setItems }: { title: string; items: MenuItem
   );
 }
 
-export default function TvMenuGenerator() {
-  const [mains, setMains] = useState<MenuItem[]>(blankItems);
-  const [heatEat, setHeatEat] = useState<MenuItem[]>(blankItems);
+export default function TvMenuGenerator({ mains, setMains, heatEat, setHeatEat }: {
+  mains: MenuItem[];
+  setMains: React.Dispatch<React.SetStateAction<MenuItem[]>>;
+  heatEat: MenuItem[];
+  setHeatEat: React.Dispatch<React.SetStateAction<MenuItem[]>>;
+}) {
   const [session, setSession] = useState<Session | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
