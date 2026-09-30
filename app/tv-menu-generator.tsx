@@ -29,6 +29,7 @@ type TvSettings = {
 };
 
 const publicBase = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+const productionUrl = 'https://aarguelles-svg.github.io/curio-menu/';
 const menuCountMax = 12;
 const blankItems = () => Array.from({ length: 8 }, (_, index) => ({ id: index + 1, name: '', price: '' }));
 
@@ -99,6 +100,9 @@ export default function TvMenuGenerator() {
   const [session, setSession] = useState<Session | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordMode, setPasswordMode] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [slides, setSlides] = useState<MediaSlide[]>([]);
   const [activeSlide, setActiveSlide] = useState(0);
   const [qrPath, setQrPath] = useState<string | null>(null);
@@ -139,7 +143,12 @@ export default function TvMenuGenerator() {
 
   useEffect(() => {
     void supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
+    const authType = new URLSearchParams(window.location.hash.slice(1)).get('type');
+    if (authType === 'recovery' || authType === 'invite') setPasswordMode(true);
+    const { data } = supabase.auth.onAuthStateChange((event, next) => {
+      setSession(next);
+      if (event === 'PASSWORD_RECOVERY') setPasswordMode(true);
+    });
     void loadLibrary();
     return () => data.subscription.unsubscribe();
   }, [loadLibrary]);
@@ -162,6 +171,30 @@ export default function TvMenuGenerator() {
     event.preventDefault(); setBusy('auth'); setMessage('');
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setBusy(null); setMessage(error ? error.message : 'Signed in. Uploads are now enabled.'); if (!error) setPassword('');
+  }
+
+  async function requestPasswordReset() {
+    if (!email.trim()) {
+      setMessage('Enter your staff email first, then choose Forgot password.');
+      return;
+    }
+    setBusy('reset'); setMessage('Sending password setup email…');
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: productionUrl });
+    setBusy(null);
+    setMessage(error ? error.message : 'Check your email for the secure password setup link.');
+  }
+
+  async function updatePassword(event: React.FormEvent) {
+    event.preventDefault();
+    if (newPassword.length < 8) return setMessage('Use a password with at least 8 characters.');
+    if (newPassword !== confirmPassword) return setMessage('The two passwords do not match.');
+    setBusy('password'); setMessage('Saving your password…');
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setBusy(null);
+    if (error) return setMessage(error.message);
+    window.history.replaceState({}, '', `${window.location.pathname}${window.location.search}`);
+    setNewPassword(''); setConfirmPassword(''); setPasswordMode(false);
+    setMessage('Password saved. You are signed in and can manage shared media.');
   }
 
   async function uploadMedia(file: File) {
@@ -309,7 +342,7 @@ export default function TvMenuGenerator() {
           {slides.length ? <div className="media-editor-list">{slides.map((slide, index) => <div className="media-editor" key={slide.id} draggable={Boolean(session)} onDragStart={(event) => event.dataTransfer.setData('text/plain', String(index))} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); if (session) void moveSlide(Number(event.dataTransfer.getData('text/plain')), index); }}><GripVertical className="media-grip" /><button className="media-thumb" onClick={() => setActiveSlide(index)}><img src={slide.url} alt="" /></button><div className="media-meta"><strong title={slide.file_name}>{slide.file_name}</strong><label><Input type="number" min="1" max="300" value={slide.duration_seconds} disabled={!session} onChange={(event) => void updateSlide(slide.id, { duration_seconds: Math.min(300, Math.max(1, Number(event.target.value))) })} /><span>sec</span></label></div>{session && <Button variant="ghost" size="icon-sm" className="delete-button" disabled={busy === slide.id} onClick={() => void removeSlide(slide)}><Trash2 /></Button>}</div>)}</div> : session ? <button className="empty-library is-upload-ready" type="button" onClick={() => fileRef.current?.click()} disabled={busy === 'upload'}><ImagePlus /><strong>Upload your first offer</strong><span>PNG, JPG, WebP, or GIF · up to 25 MB</span></button> : <div className="empty-library">No offer media yet. Sign in below to add the first slide.</div>}
         </section>
         <section className="settings-section"><div className="section-heading"><div><h3>QR code</h3><p>Displayed beside the fixed @curio.eats handle</p></div>{session && <Button variant="outline" onClick={() => qrRef.current?.click()} disabled={busy === 'qr'}>{qrUrl ? 'Replace' : 'Upload'}</Button>}</div><input ref={qrRef} hidden type="file" accept="image/*" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadQr(file); event.currentTarget.value = ''; }} />{qrUrl && <img className="qr-preview" src={qrUrl} alt="Uploaded QR code" />}</section>
-        <section className="settings-section auth-section">{session ? <div className="signed-in"><div><h3>Media account</h3><p>{session.user.email}</p></div><Button variant="outline" onClick={() => void supabase.auth.signOut()}><LogOut /> Sign out</Button></div> : <form onSubmit={signIn}><div className="section-heading"><div><h3>Staff sign in</h3><p>Required only to change shared media</p></div></div><label><span>Email</span><Input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></label><label><span>Password</span><Input type="password" required value={password} onChange={(event) => setPassword(event.target.value)} /></label><Button className="auth-button" type="submit" disabled={busy === 'auth'}><LogIn /> Sign in</Button></form>}</section>
+        <section className="settings-section auth-section">{session && passwordMode ? <form onSubmit={updatePassword}><div className="section-heading"><div><h3>Set your staff password</h3><p>Create the password you’ll use on the live generator</p></div></div><label><span>New password</span><Input type="password" minLength={8} required autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /></label><label><span>Confirm password</span><Input type="password" minLength={8} required autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label><Button className="auth-button" type="submit" disabled={busy === 'password'}>{busy === 'password' ? <LoaderCircle className="spin" /> : <LogIn />}{busy === 'password' ? 'Saving…' : 'Save password'}</Button></form> : session ? <div className="signed-in"><div><h3>Staff account</h3><p>{session.user.email}</p></div><Button variant="outline" onClick={() => void supabase.auth.signOut()}><LogOut /> Sign out</Button></div> : <form onSubmit={signIn}><div className="section-heading"><div><h3>Staff sign in</h3><p>Required to change shared media and TV headers</p></div></div><label><span>Email</span><Input type="email" required autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label><label><span>Password</span><Input type="password" required autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} /></label><div className="auth-actions"><Button className="auth-button" type="submit" disabled={busy === 'auth'}><LogIn /> Sign in</Button><button className="forgot-password" type="button" disabled={busy === 'reset'} onClick={() => void requestPasswordReset()}>{busy === 'reset' ? 'Sending…' : 'Forgot password?'}</button></div></form>}</section>
       </div></aside>
     </main>
   );
