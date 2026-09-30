@@ -126,6 +126,7 @@ h3 { margin-bottom: 0; font-size: 15px; line-height: 1.3; }
 .generator-root { min-height: 100dvh; display: flex; flex-direction: column; }
 .generator-tabs { height: 58px; flex: 0 0 58px; display: flex; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--line); background: #fffdf8; padding: 0 28px; }
 .generator-brand { color: var(--orange); font-family: var(--font-tilt), sans-serif; font-size: 18px; letter-spacing: -.02em; }
+.generator-nav-actions { display: flex; align-items: center; gap: 10px; }
 .tab-list { display: flex; gap: 5px; border-radius: 11px; background: #eee8df; padding: 4px; }
 .tab-list button { border: 0; border-radius: 8px; background: transparent; padding: 7px 14px; color: var(--muted-ink); font-size: 12px; font-weight: 700; cursor: pointer; }
 .tab-list button.is-active { background: white; color: var(--orange); box-shadow: 0 1px 4px rgb(49 43 39 / 12%); }
@@ -133,6 +134,28 @@ h3 { margin-bottom: 0; font-size: 15px; line-height: 1.3; }
 .format-panel[hidden] { display: none; }
 .generator-view .app-shell { min-height: calc(100dvh - 58px); }
 .generator-view .editor-pane { height: calc(100dvh - 58px); }
+.header-auth { position: relative; }
+.header-auth-trigger { height: 40px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 10px; background: white; padding: 0 12px; color: var(--ink); font-size: 12px; font-weight: 700; cursor: pointer; box-shadow: 0 1px 3px rgb(49 43 39 / 5%); }
+.header-auth-trigger:hover, .header-auth-trigger[aria-expanded='true'] { border-color: rgb(196 78 12 / 42%); color: var(--orange); }
+.header-auth-trigger svg { width: 16px; height: 16px; }
+.header-auth-trigger.is-signed-in { color: #35663d; }
+.header-auth-dot { width: 8px; height: 8px; border-radius: 50%; background: #4f9a5c; box-shadow: 0 0 0 3px rgb(79 154 92 / 14%); }
+.header-auth-popover { position: absolute; z-index: 50; top: calc(100% + 9px); right: 0; width: min(390px, calc(100vw - 24px)); border: 1px solid var(--line); border-radius: 16px; background: var(--panel); padding: 16px; box-shadow: 0 18px 50px rgb(57 39 24 / 18%); }
+.header-auth-popover form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.header-auth-heading { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 2px; margin-bottom: 2px; }
+.header-auth-heading strong { font-size: 15px; }
+.header-auth-heading span { color: var(--muted-ink); font-size: 11px; }
+.header-auth-popover label > span { display: block; margin: 0 0 5px 2px; color: var(--muted-ink); font-size: 10px; font-weight: 650; }
+.header-auth-popover [data-slot='input'] { height: 38px; }
+.header-auth-password { display: flex; flex-direction: column; align-items: stretch; }
+.header-auth-password .forgot-password { align-self: flex-start; margin: 6px 0 0 2px; }
+.header-auth-actions { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.header-auth-actions .auth-button { min-width: 108px; }
+.header-auth-message { margin: 10px 0 0; border-radius: 8px; background: #f1f7ed; padding: 8px 10px; color: #42643d; font-size: 10px; line-height: 1.4; }
+.header-signed-in { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.header-signed-in > div { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.header-signed-in strong { font-size: 14px; }
+.header-signed-in span { overflow: hidden; color: var(--muted-ink); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .generator-view .story-viewport { width: min(100%, calc((100dvh - 168px) * .5625)); }
 
 /* TV menu */
@@ -213,8 +236,14 @@ h3 { margin-bottom: 0; font-size: 15px; line-height: 1.3; }
 @media (max-width: 620px) {
   .generator-tabs { height: auto; min-height: 58px; align-items: flex-start; flex-direction: column; padding: 10px 18px; }
   .generator-brand { display: none; }
-  .tab-list { width: 100%; }
+  .generator-nav-actions { width: 100%; }
+  .tab-list { min-width: 0; flex: 1; }
   .tab-list button { flex: 1; }
+  .header-auth-trigger { padding-inline: 10px; }
+  .header-auth-trigger svg { display: none; }
+  .header-auth-popover { position: fixed; top: 68px; right: 12px; }
+  .header-auth-popover form { grid-template-columns: 1fr; }
+  .header-auth-heading, .header-auth-actions { grid-column: auto; }
   .auth-section form { grid-template-columns: 1fr; }
   .auth-section form .section-heading { grid-column: auto; }
   .auth-actions { padding-top: 0; }
