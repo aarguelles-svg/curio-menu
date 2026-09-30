@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import InstagramMenuGenerator from './instagram-menu-generator';
 import type { MenuItem } from './menu-types';
@@ -40,7 +41,22 @@ export default function MenuGenerator() {
   const [mains, setMains] = useState<MenuItem[]>(blankItems);
   const [heatEat, setHeatEat] = useState<MenuItem[]>(blankItems);
   const [menusLoaded, setMenusLoaded] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
   const latestMenus = useRef({ mains, heatEat });
+
+  useEffect(() => {
+    let active = true;
+    void supabase.auth.getSession().then(({ data }) => {
+      if (active) setSession(data.session);
+    });
+    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (active) setSession(nextSession);
+    });
+    return () => {
+      active = false;
+      data.subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -70,19 +86,19 @@ export default function MenuGenerator() {
     latestMenus.current = { mains, heatEat };
     if (!menusLoaded) return;
     window.localStorage.setItem(savedMenusKey, JSON.stringify({ mains, heatEat }));
+    if (!session) return;
     const timeout = window.setTimeout(() => {
-      void supabase.auth.getSession().then(({ data }) => {
-        if (!data.session) return;
-        const current = latestMenus.current;
-        void supabase.from('tv_settings').update({
+      const current = latestMenus.current;
+      void supabase.from('tv_settings').update({
           mains_items: current.mains,
           heat_eat_items: current.heatEat,
           updated_at: new Date().toISOString(),
-        }).eq('id', 1);
-      });
+        }).eq('id', 1).then(({ error }) => {
+          if (error) console.error('Could not save the shared menu.', error);
+        });
     }, 500);
     return () => window.clearTimeout(timeout);
-  }, [mains, heatEat, menusLoaded]);
+  }, [mains, heatEat, menusLoaded, session]);
 
   return (
     <div className="generator-root">
