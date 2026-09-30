@@ -32,6 +32,9 @@ const publicBase = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 const menuCountMax = 12;
 const tvExportFps = 2;
 const tvExportFrameDelay = 1000 / tvExportFps;
+const gifPaletteSize = 128;
+const qrPaletteSize = 32;
+const qrExportRegion = { x: 1658, y: 818, width: 170, height: 170 };
 
 function safeFileName(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '');
@@ -72,6 +75,18 @@ function drawWaveMascot(context: CanvasRenderingContext2D, mascot: CanvasImageSo
   context.scale(-1, 1);
   context.drawImage(mascot, -width / 2, -height / 2, width, height);
   context.restore();
+}
+
+function mergePalettes(primary: number[][], secondary: number[][], limit: number) {
+  const palette: number[][] = [];
+  const colors = new Set<string>();
+  for (const color of [...primary, ...secondary]) {
+    const key = `${color[0]},${color[1]},${color[2]}`;
+    if (colors.has(key)) continue;
+    colors.add(key); palette.push(color);
+    if (palette.length === limit) break;
+  }
+  return palette;
 }
 
 function ItemEditor({ title, items, setItems }: { title: string; items: MenuItem[]; setItems: React.Dispatch<React.SetStateAction<MenuItem[]>> }) {
@@ -248,22 +263,43 @@ export default function TvMenuGenerator({ session, mains, setMains, heatEat, set
       const waveMascot = await loadImage(`${publicBase}/assets/wave-mascot.png`);
       const encoder = GIFEncoder();
       let frameCount = 0;
-      const encode = (canvas: HTMLCanvasElement, repeats = 1) => {
+      const baseContext = base.getContext('2d')!;
+      const qrPixels = baseContext.getImageData(qrExportRegion.x, qrExportRegion.y, qrExportRegion.width, qrExportRegion.height).data;
+      const stableQrPalette = quantize(qrPixels, qrPaletteSize, { format: 'rgb444', useSqrt: false });
+      const stableQrIndices = applyPalette(qrPixels, stableQrPalette, 'rgb444');
+      const prepareFrame = (canvas: HTMLCanvasElement) => {
         const data = canvas.getContext('2d')!.getImageData(0, 0, 1920, 1080).data;
-        const palette = quantize(data, 128, { format: 'rgb444', useSqrt: false });
+        const framePalette = quantize(data, gifPaletteSize - qrPaletteSize, { format: 'rgb444', useSqrt: false });
+        const palette = mergePalettes(stableQrPalette, framePalette, gifPaletteSize);
         const indexed = applyPalette(data, palette, 'rgb444');
+        for (let y = 0; y < qrExportRegion.height; y += 1) {
+          const sourceOffset = y * qrExportRegion.width;
+          const targetOffset = (qrExportRegion.y + y) * 1920 + qrExportRegion.x;
+          indexed.set(stableQrIndices.subarray(sourceOffset, sourceOffset + qrExportRegion.width), targetOffset);
+        }
+        return { indexed, palette };
+      };
+      const writePreparedFrame = ({ indexed, palette }: ReturnType<typeof prepareFrame>, repeats = 1) => {
         for (let index = 0; index < repeats; index += 1) {
           encoder.writeFrame(indexed, 1920, 1080, { palette, delay: tvExportFrameDelay, repeat: 0 });
           frameCount += 1;
           if (frameCount === 1 || frameCount % tvExportFps === 0) setMessage(`Encoding TV frame ${frameCount}…`);
         }
       };
+      const encode = (canvas: HTMLCanvasElement, repeats = 1) => writePreparedFrame(prepareFrame(canvas), repeats);
       const output = document.createElement('canvas'); output.width = 1920; output.height = 1080;
       const context = output.getContext('2d')!;
+      const drawBase = () => {
+        context.setTransform(1, 0, 0, 1, 0, 0);
+        context.globalAlpha = 1;
+        context.globalCompositeOperation = 'source-over';
+        context.clearRect(0, 0, output.width, output.height);
+        context.drawImage(base, 0, 0);
+      };
       const list = slides.length ? slides : [null];
       for (const slide of list) {
         if (!slide) {
-          context.drawImage(base, 0, 0); drawWaveMascot(context, waveMascot);
+          drawBase(); drawWaveMascot(context, waveMascot);
           encode(output, tvExportFps);
           continue;
         }
@@ -273,31 +309,42 @@ export default function TvMenuGenerator({ session, mains, setMains, heatEat, set
           const parsed = parseGIF(buffer); const decoded = decompressFrames(parsed, true);
           const source = document.createElement('canvas'); source.width = parsed.lsd.width; source.height = parsed.lsd.height;
           const sourceContext = source.getContext('2d')!;
-          const sampleCount = Math.max(1, Math.min(decoded.length, targetFrames, 24));
-          const chosenIndices = Array.from({ length: sampleCount }, (_, index) => Math.min(decoded.length - 1, Math.floor(index * decoded.length / sampleCount)));
-          let chosenCursor = 0;
+          const patchCanvas = document.createElement('canvas'); const patchContext = patchCanvas.getContext('2d')!;
+          const frameEnds: number[] = []; let loopDuration = 0;
+          for (const frame of decoded) { loopDuration += Math.max(20, frame.delay || 100); frameEnds.push(loopDuration); }
+          const sourceIndices = Array.from({ length: targetFrames }, (_, index) => {
+            const loopTime = (index * tvExportFrameDelay) % Math.max(tvExportFrameDelay, loopDuration);
+            const match = frameEnds.findIndex((end) => loopTime < end);
+            return match < 0 ? decoded.length - 1 : match;
+          });
+          const neededIndices = new Set(sourceIndices);
+          const preparedFrames = new Map<number, ReturnType<typeof prepareFrame>>();
           let previousFrame: (typeof decoded)[number] | null = null;
-          for (let decodedIndex = 0; decodedIndex < decoded.length && chosenCursor < chosenIndices.length; decodedIndex += 1) {
+          let restoreSnapshot: ImageData | null = null;
+          for (let decodedIndex = 0; decodedIndex < decoded.length && preparedFrames.size < neededIndices.size; decodedIndex += 1) {
             const frame = decoded[decodedIndex];
             if (previousFrame?.disposalType === 2) sourceContext.clearRect(previousFrame.dims.left, previousFrame.dims.top, previousFrame.dims.width, previousFrame.dims.height);
+            if (previousFrame?.disposalType === 3 && restoreSnapshot) sourceContext.putImageData(restoreSnapshot, 0, 0);
+            restoreSnapshot = frame.disposalType === 3 ? sourceContext.getImageData(0, 0, source.width, source.height) : null;
             const patchBytes = new Uint8ClampedArray(frame.patch.length);
             patchBytes.set(frame.patch);
             const patch = new ImageData(patchBytes, frame.dims.width, frame.dims.height);
-            sourceContext.putImageData(patch, frame.dims.left, frame.dims.top);
+            patchCanvas.width = frame.dims.width; patchCanvas.height = frame.dims.height;
+            patchContext.putImageData(patch, 0, 0);
+            sourceContext.drawImage(patchCanvas, frame.dims.left, frame.dims.top);
             previousFrame = frame;
-            if (decodedIndex === chosenIndices[chosenCursor]) {
-              const repeats = Math.floor(targetFrames / sampleCount) + (chosenCursor < targetFrames % sampleCount ? 1 : 0);
-              context.drawImage(base, 0, 0);
+            if (neededIndices.has(decodedIndex)) {
+              drawBase();
               drawCover(context, source, source.width, source.height);
               drawWaveMascot(context, waveMascot);
-              encode(output, repeats);
-              chosenCursor += 1;
+              preparedFrames.set(decodedIndex, prepareFrame(output));
               await new Promise((resolve) => setTimeout(resolve, 0));
             }
           }
+          for (const sourceIndex of sourceIndices) writePreparedFrame(preparedFrames.get(sourceIndex)!);
         } else {
           const image = await loadImage(slide.url);
-          context.drawImage(base, 0, 0);
+          drawBase();
           drawCover(context, image, image.naturalWidth, image.naturalHeight);
           drawWaveMascot(context, waveMascot);
           encode(output, targetFrames);
