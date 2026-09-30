@@ -195,7 +195,7 @@ h3 { margin-bottom: 0; font-size: 15px; line-height: 1.3; }
 .password-toggle { position: absolute; top: 50%; right: 5px; width: 30px; height: 30px; display: grid; place-items: center; transform: translateY(-50%); border: 0; border-radius: 7px; background: transparent; color: var(--muted-ink); cursor: pointer; }
 .password-toggle:hover { background: var(--muted); color: var(--orange); }
 .password-toggle svg { width: 16px; height: 16px; }
-.auth-actions { display: flex; flex-direction: column; align-items: stretch; gap: 5px; }
+.auth-actions { display: flex; flex-direction: column; align-items: stretch; align-self: start; gap: 5px; padding-top: 20px; }
 .forgot-password { border: 0; background: transparent; padding: 0; color: var(--orange); font-size: 10px; font-weight: 650; text-align: center; cursor: pointer; }
 .forgot-password:hover { color: var(--deep-orange); text-decoration: underline; }
 .forgot-password:disabled { cursor: wait; opacity: .55; }
@@ -216,4 +216,5 @@ h3 { margin-bottom: 0; font-size: 15px; line-height: 1.3; }
   .tab-list button { flex: 1; }
   .auth-section form { grid-template-columns: 1fr; }
   .auth-section form .section-heading { grid-column: auto; }
+  .auth-actions { padding-top: 0; }
 }
