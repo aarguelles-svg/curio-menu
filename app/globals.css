@@ -153,7 +153,7 @@ h3 { margin-bottom: 0; font-size: 15px; line-height: 1.3; }
 .tv-menu-row span { flex: 0 0 auto; font-weight: 400; }
 .tv-menu-row .is-placeholder { color: rgb(196 78 12 / 38%); }
 .tv-media-card, .tv-social-card { position: absolute; left: 1315px; width: 535px; border: 2px solid var(--orange); border-radius: 56px; background: var(--card); box-shadow: 12px 12px 0 var(--orange); padding: 26px; }
-.tv-media-card { top: 100px; height: 668px; }
+.tv-media-card { z-index: 1; top: 100px; height: 668px; }
 .tv-media-inner { width: 481px; height: 614px; overflow: hidden; border-radius: 30px; background: #d8c9a7; }
 .tv-media-inner img { width: 100%; height: 100%; display: block; object-fit: cover; }
 .tv-media-empty { width: 100%; height: 100%; display: grid; place-items: center; background: linear-gradient(135deg, rgb(196 78 12 / 7%) 25%, transparent 25%, transparent 50%, rgb(196 78 12 / 7%) 50%, rgb(196 78 12 / 7%) 75%, transparent 75%); background-size: 42px 42px; color: rgb(196 78 12 / 52%); font-family: var(--font-tilt), sans-serif; font-size: 44px; line-height: 1.15; text-align: center; }
@@ -162,9 +162,10 @@ h3 { margin-bottom: 0; font-size: 15px; line-height: 1.3; }
 .tv-social-copy strong { font: inherit; }
 .tv-qr-box { width: 158px; height: 158px; flex: 0 0 auto; overflow: hidden; display: grid; place-items: center; border-radius: 30px; background: #fffdf8; color: rgb(196 78 12 / 48%); font-size: 22px; font-weight: 700; line-height: 1.2; text-align: center; }
 .tv-qr-box img { width: 100%; height: 100%; object-fit: contain; }
-.tv-wave-mascot { position: absolute; z-index: 4; top: 12px; right: 28px; width: 205px; height: 205px; object-fit: contain; transform: rotate(13deg) scaleX(-1); }
+.tv-wave-mascot { position: absolute; z-index: 6; top: 12px; right: 28px; width: 205px; height: 205px; object-fit: contain; transform: rotate(13deg) scaleX(-1); }
 .tv-point-mascot { position: absolute; z-index: 4; left: -37px; bottom: -21px; width: 259px; height: 259px; object-fit: contain; transform: rotate(-8.29deg); }
 .tv-canvas.is-export-template .tv-media-inner img { visibility: hidden; }
+.tv-canvas.is-export-template .tv-wave-mascot { visibility: hidden; }
 
 .status-message { margin-top: 18px; border: 1px solid #cddfcf; border-radius: 11px; background: #f1faf2; padding: 10px 12px; color: #34623b; font-size: 12px; line-height: 1.45; }
 .status-message.is-warning { border-color: #e9c997; background: #fff8e9; color: #7c4a0f; }

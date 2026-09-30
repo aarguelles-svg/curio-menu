@@ -31,6 +31,8 @@ type TvSettings = {
 const publicBase = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 const productionUrl = 'https://aarguelles-svg.github.io/curio-menu/';
 const menuCountMax = 12;
+const tvExportFps = 2;
+const tvExportFrameDelay = 1000 / tvExportFps;
 
 function safeFileName(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '');
@@ -60,6 +62,16 @@ function drawCover(context: CanvasRenderingContext2D, source: CanvasImageSource,
   context.roundRect(x, y, width, height, radius);
   context.clip();
   context.drawImage(source, x + (width - drawWidth) / 2, y + (height - drawHeight) / 2, drawWidth, drawHeight);
+  context.restore();
+}
+
+function drawWaveMascot(context: CanvasRenderingContext2D, mascot: CanvasImageSource) {
+  const width = 205, height = 205, x = 1920 - 28 - width, y = 12;
+  context.save();
+  context.translate(x + width / 2, y + height / 2);
+  context.rotate(13 * Math.PI / 180);
+  context.scale(-1, 1);
+  context.drawImage(mascot, -width / 2, -height / 2, width, height);
   context.restore();
 }
 
@@ -278,37 +290,62 @@ export default function TvMenuGenerator({ mains, setMains, heatEat, setHeatEat }
     try {
       await document.fonts.ready; await waitFrame();
       const base = await toCanvas(tvRef.current, { width: 1920, height: 1080, pixelRatio: 1, cacheBust: true, style: { transform: 'none' } });
+      const waveMascot = await loadImage(`${publicBase}/assets/wave-mascot.png`);
       const encoder = GIFEncoder();
       let frameCount = 0;
-      const encode = (canvas: HTMLCanvasElement, delay: number) => {
+      const encode = (canvas: HTMLCanvasElement, repeats = 1) => {
         const data = canvas.getContext('2d')!.getImageData(0, 0, 1920, 1080).data;
         const palette = quantize(data, 128, { format: 'rgb444', useSqrt: false });
-        encoder.writeFrame(applyPalette(data, palette, 'rgb444'), 1920, 1080, { palette, delay, repeat: 0 });
-        frameCount += 1; setMessage(`Encoding frame ${frameCount}…`);
+        const indexed = applyPalette(data, palette, 'rgb444');
+        for (let index = 0; index < repeats; index += 1) {
+          encoder.writeFrame(indexed, 1920, 1080, { palette, delay: tvExportFrameDelay, repeat: 0 });
+          frameCount += 1;
+          if (frameCount === 1 || frameCount % tvExportFps === 0) setMessage(`Encoding TV frame ${frameCount}…`);
+        }
       };
       const output = document.createElement('canvas'); output.width = 1920; output.height = 1080;
       const context = output.getContext('2d')!;
       const list = slides.length ? slides : [null];
       for (const slide of list) {
-        if (!slide) { context.drawImage(base, 0, 0); encode(output, 1000); continue; }
+        if (!slide) {
+          context.drawImage(base, 0, 0); drawWaveMascot(context, waveMascot);
+          encode(output, tvExportFps);
+          continue;
+        }
+        const targetFrames = Math.max(tvExportFps, Math.round(slide.duration_seconds * tvExportFps));
         if (slide.mime_type === 'image/gif') {
           const buffer = await fetch(slide.url).then((response) => response.arrayBuffer());
           const parsed = parseGIF(buffer); const decoded = decompressFrames(parsed, true);
           const source = document.createElement('canvas'); source.width = parsed.lsd.width; source.height = parsed.lsd.height;
           const sourceContext = source.getContext('2d')!;
-          const chosen = decoded.length > 24 ? decoded.filter((_frame, index) => index % Math.ceil(decoded.length / 24) === 0).slice(0, 24) : decoded;
-          const delay = slide.duration_seconds * 1000 / Math.max(1, chosen.length);
-          for (const frame of chosen) {
+          const sampleCount = Math.max(1, Math.min(decoded.length, targetFrames, 24));
+          const chosenIndices = Array.from({ length: sampleCount }, (_, index) => Math.min(decoded.length - 1, Math.floor(index * decoded.length / sampleCount)));
+          let chosenCursor = 0;
+          let previousFrame: (typeof decoded)[number] | null = null;
+          for (let decodedIndex = 0; decodedIndex < decoded.length && chosenCursor < chosenIndices.length; decodedIndex += 1) {
+            const frame = decoded[decodedIndex];
+            if (previousFrame?.disposalType === 2) sourceContext.clearRect(previousFrame.dims.left, previousFrame.dims.top, previousFrame.dims.width, previousFrame.dims.height);
             const patchBytes = new Uint8ClampedArray(frame.patch.length);
             patchBytes.set(frame.patch);
             const patch = new ImageData(patchBytes, frame.dims.width, frame.dims.height);
-            if (frame.disposalType === 2) sourceContext.clearRect(0, 0, source.width, source.height);
             sourceContext.putImageData(patch, frame.dims.left, frame.dims.top);
-            context.drawImage(base, 0, 0); drawCover(context, source, source.width, source.height); encode(output, delay);
-            await new Promise((resolve) => setTimeout(resolve, 0));
+            previousFrame = frame;
+            if (decodedIndex === chosenIndices[chosenCursor]) {
+              const repeats = Math.floor(targetFrames / sampleCount) + (chosenCursor < targetFrames % sampleCount ? 1 : 0);
+              context.drawImage(base, 0, 0);
+              drawCover(context, source, source.width, source.height);
+              drawWaveMascot(context, waveMascot);
+              encode(output, repeats);
+              chosenCursor += 1;
+              await new Promise((resolve) => setTimeout(resolve, 0));
+            }
           }
         } else {
-          const image = await loadImage(slide.url); context.drawImage(base, 0, 0); drawCover(context, image, image.naturalWidth, image.naturalHeight); encode(output, slide.duration_seconds * 1000);
+          const image = await loadImage(slide.url);
+          context.drawImage(base, 0, 0);
+          drawCover(context, image, image.naturalWidth, image.naturalHeight);
+          drawWaveMascot(context, waveMascot);
+          encode(output, targetFrames);
         }
       }
       encoder.finish();
@@ -317,7 +354,7 @@ export default function TvMenuGenerator({ mains, setMains, heatEat, setHeatEat }
       new Uint8Array(exportBuffer).set(encodedBytes);
       const blob = new Blob([exportBuffer], { type: 'image/gif' });
       const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = 'curio-tv-menu.gif'; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setMessage(`Exported ${frameCount} GIF frame${frameCount === 1 ? '' : 's'}.`);
+      setMessage(`Exported ${frameCount} TV-compatible GIF frames at ${tvExportFps} fps.`);
     } catch (error) { setMessage(error instanceof Error ? error.message : 'GIF export failed.'); }
     finally { setExportTemplate(false); setBusy(null); }
   }
