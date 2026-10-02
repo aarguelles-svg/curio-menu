@@ -49,11 +49,38 @@ const gifPaletteSize = 256;
 const fixedArtworkPaletteSize = 128;
 const mediaPaletteSize = gifPaletteSize - fixedArtworkPaletteSize;
 
-function menuPrice(item: MenuItem, placeholder = 'P-') {
-  const first = item.price ? `P${item.price}` : placeholder;
+function menuPrice(
+  item: MenuItem,
+  placeholder = 'P-',
+  hideMissing = false,
+) {
+  const first = item.price ? `P${item.price}` : hideMissing ? '' : placeholder;
   if (!item.showSecondPrice) return first;
-  const second = item.secondPrice ? `P${item.secondPrice}` : placeholder;
-  return `${first}/${second}`;
+  const second = item.secondPrice
+    ? `P${item.secondPrice}`
+    : hideMissing
+      ? ''
+      : placeholder;
+  return hideMissing
+    ? [first, second].filter(Boolean).join('/')
+    : `${first}/${second}`;
+}
+
+function hasMenuItemContent(item: MenuItem) {
+  return Boolean(
+    item.name.trim() ||
+      item.price.trim() ||
+      (item.showSecondPrice && item.secondPrice.trim()),
+  );
+}
+
+function hasDrinkItemContent(item: DrinkItem) {
+  return Boolean(
+    item.name.trim() ||
+      (item.showSubtitle && item.subtitle.trim()) ||
+      item.price.trim() ||
+      item.coldPrice.trim(),
+  );
 }
 
 function safeFileName(value: string) {
@@ -548,6 +575,7 @@ function DrinkEditor({
 function HeatEatSlide({
   items,
   title,
+  hidePlaceholders = false,
   editable,
   editing,
   draft,
@@ -557,6 +585,7 @@ function HeatEatSlide({
 }: {
   items: MenuItem[];
   title: string;
+  hidePlaceholders?: boolean;
   editable?: boolean;
   editing?: boolean;
   draft?: string;
@@ -594,24 +623,40 @@ function HeatEatSlide({
         )}
       </div>
       <div className="tv-heat-slide-list">
-        {items.map((item, index) => (
+        {items
+          .filter((item) => !hidePlaceholders || hasMenuItemContent(item))
+          .map((item, index) => (
           <div className="tv-heat-slide-row" key={item.id}>
             <strong className={item.name ? '' : 'is-placeholder'}>
-              {item.name || `Menu item ${index + 1}`}
+              {item.name || (hidePlaceholders ? '' : `Menu item ${index + 1}`)}
             </strong>
             <span className={item.price ? '' : 'is-placeholder'}>
-              {menuPrice(item)}
+              {menuPrice(item, 'P-', hidePlaceholders)}
             </span>
           </div>
-        ))}
+          ))}
       </div>
     </div>
   );
 }
 
-function DrinksCard({ items }: { items: DrinkItem[] }) {
-  const coffee = items.filter((item) => item.section === 'coffee');
-  const cold = items.filter((item) => item.section === 'cold');
+function DrinksCard({
+  items,
+  hidePlaceholders = false,
+}: {
+  items: DrinkItem[];
+  hidePlaceholders?: boolean;
+}) {
+  const coffee = items.filter(
+    (item) =>
+      item.section === 'coffee' &&
+      (!hidePlaceholders || hasDrinkItemContent(item)),
+  );
+  const cold = items.filter(
+    (item) =>
+      item.section === 'cold' &&
+      (!hidePlaceholders || hasDrinkItemContent(item)),
+  );
   return (
     <div className="tv-menu-card tv-drinks-card">
       <div className="tv-card-title">COFFEE</div>
@@ -625,17 +670,23 @@ function DrinksCard({ items }: { items: DrinkItem[] }) {
           <div className="tv-drink-row tv-coffee-row" key={item.id}>
             <div>
               <strong className={item.name ? '' : 'is-placeholder'}>
-                {item.name || `Coffee ${index + 1}`}
+                {item.name || (hidePlaceholders ? '' : `Coffee ${index + 1}`)}
               </strong>
               {item.showSubtitle && (
-                <small>{item.subtitle || 'Subtitle'}</small>
+                <small className={item.subtitle ? '' : 'is-placeholder'}>
+                  {item.subtitle || (hidePlaceholders ? '' : 'Subtitle')}
+                </small>
               )}
             </div>
             <span className={item.price ? '' : 'is-placeholder'}>
-              {item.price ? `P${item.price}` : 'Pxxx'}
+              {item.price ? `P${item.price}` : hidePlaceholders ? '' : 'P-'}
             </span>
             <span className={item.coldPrice ? '' : 'is-placeholder'}>
-              {item.coldPrice ? `P${item.coldPrice}` : 'Pxxx'}
+              {item.coldPrice
+                ? `P${item.coldPrice}`
+                : hidePlaceholders
+                  ? ''
+                  : 'P-'}
             </span>
           </div>
         ))}
@@ -646,18 +697,30 @@ function DrinksCard({ items }: { items: DrinkItem[] }) {
           <div className="tv-drink-row tv-cold-row" key={item.id}>
             <div>
               <strong className={item.name ? '' : 'is-placeholder'}>
-                {item.name || `Cold drink ${index + 1}`}
+                {item.name ||
+                  (hidePlaceholders ? '' : `Cold drink ${index + 1}`)}
               </strong>
               {item.showSubtitle && (
-                <small>{item.subtitle || 'Subtitle'}</small>
+                <small className={item.subtitle ? '' : 'is-placeholder'}>
+                  {item.subtitle || (hidePlaceholders ? '' : 'Subtitle')}
+                </small>
               )}
             </div>
             <span className={item.price ? '' : 'is-placeholder'}>
               {item.showSecondPrice
-                ? `${item.price ? `P${item.price}` : 'P-'}/${item.coldPrice ? `P${item.coldPrice}` : 'P-'}`
+                ? hidePlaceholders
+                  ? [
+                      item.price ? `P${item.price}` : '',
+                      item.coldPrice ? `P${item.coldPrice}` : '',
+                    ]
+                      .filter(Boolean)
+                      .join('/')
+                  : `${item.price ? `P${item.price}` : 'P-'}/${item.coldPrice ? `P${item.coldPrice}` : 'P-'}`
                 : item.price
                   ? `P${item.price}`
-                  : 'P-'}
+                  : hidePlaceholders
+                    ? ''
+                    : 'P-'}
             </span>
           </div>
         ))}
@@ -1262,16 +1325,22 @@ export default function TvMenuGenerator({
                   )}
                 </div>
                 <div className="tv-menu-list">
-                  {mains.map((item, index) => (
-                    <div className="tv-menu-row" key={item.id}>
-                      <strong className={item.name ? '' : 'is-placeholder'}>
-                        {item.name || `Menu item ${index + 1}`}
-                      </strong>
-                      <span className={item.price ? '' : 'is-placeholder'}>
-                        {menuPrice(item)}
-                      </span>
-                    </div>
-                  ))}
+                  {mains
+                    .filter(
+                      (item) =>
+                        !exportTemplate || hasMenuItemContent(item),
+                    )
+                    .map((item, index) => (
+                      <div className="tv-menu-row" key={item.id}>
+                        <strong className={item.name ? '' : 'is-placeholder'}>
+                          {item.name ||
+                            (exportTemplate ? '' : `Menu item ${index + 1}`)}
+                        </strong>
+                        <span className={item.price ? '' : 'is-placeholder'}>
+                          {menuPrice(item, 'P-', exportTemplate)}
+                        </span>
+                      </div>
+                    ))}
                 </div>
               </div>
               {tvLayout === 'no-drinks' ? (
@@ -1305,20 +1374,33 @@ export default function TvMenuGenerator({
                     )}
                   </div>
                   <div className="tv-menu-list">
-                    {heatEat.map((item, index) => (
-                      <div className="tv-menu-row" key={item.id}>
-                        <strong className={item.name ? '' : 'is-placeholder'}>
-                          {item.name || `Menu item ${index + 1}`}
-                        </strong>
-                        <span className={item.price ? '' : 'is-placeholder'}>
-                          {menuPrice(item)}
-                        </span>
-                      </div>
-                    ))}
+                    {heatEat
+                      .filter(
+                        (item) =>
+                          !exportTemplate || hasMenuItemContent(item),
+                      )
+                      .map((item, index) => (
+                        <div className="tv-menu-row" key={item.id}>
+                          <strong
+                            className={item.name ? '' : 'is-placeholder'}
+                          >
+                            {item.name ||
+                              (exportTemplate
+                                ? ''
+                                : `Menu item ${index + 1}`)}
+                          </strong>
+                          <span className={item.price ? '' : 'is-placeholder'}>
+                            {menuPrice(item, 'P-', exportTemplate)}
+                          </span>
+                        </div>
+                      ))}
                   </div>
                 </div>
               ) : (
-                <DrinksCard items={drinks} />
+                <DrinksCard
+                  items={drinks}
+                  hidePlaceholders={exportTemplate}
+                />
               )}
               <div className="tv-media-card">
                 {currentEntry?.kind === 'heat-eat' ? (
@@ -1326,6 +1408,7 @@ export default function TvMenuGenerator({
                     <HeatEatSlide
                       items={heatEat}
                       title={heatEatTitle}
+                      hidePlaceholders={exportTemplate}
                       editable
                       editing={editingTitle === 'heat-eat'}
                       draft={titleDraft}
@@ -1388,7 +1471,11 @@ export default function TvMenuGenerator({
         <div className="tv-export-source" aria-hidden="true">
           <div ref={heatExportRef} className="tv-heat-export-frame">
             <div className="tv-heat-card-inner">
-              <HeatEatSlide items={heatEat} title={heatEatTitle} />
+              <HeatEatSlide
+                items={heatEat}
+                title={heatEatTitle}
+                hidePlaceholders
+              />
             </div>
           </div>
         </div>

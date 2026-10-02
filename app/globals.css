@@ -1041,6 +1041,9 @@ h3 {
 .tv-drink-row .is-placeholder {
   color: rgb(196 78 12 / 38%);
 }
+.tv-coffee-row:last-child {
+  border-bottom: 0;
+}
 .tv-cold-title {
   width: 358px;
   height: 84px;
