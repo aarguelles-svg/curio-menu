@@ -701,7 +701,7 @@ export default function TvMenuGenerator({
     null,
   );
   const [titleDraft, setTitleDraft] = useState('');
-  const [previewScale, setPreviewScale] = useState(1);
+  const [previewScale, setPreviewScale] = useState<number | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [setupNeeded, setSetupNeeded] = useState(false);
@@ -775,14 +775,23 @@ export default function TvMenuGenerator({
   useEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
-    const resize = () =>
-      setPreviewScale(
-        Math.min(viewport.clientWidth / 1920, viewport.clientHeight / 1080),
-      );
-    resize();
+    const resize = () => {
+      const width = viewport.clientWidth;
+      const height = viewport.clientHeight;
+      if (!width || !height) return;
+      setPreviewScale(Math.min(width / 1920, height / 1080));
+    };
+    const initialResize = requestAnimationFrame(resize);
     const observer = new ResizeObserver(resize);
     observer.observe(viewport);
-    return () => observer.disconnect();
+    window.addEventListener('resize', resize);
+    window.visualViewport?.addEventListener('resize', resize);
+    return () => {
+      cancelAnimationFrame(initialResize);
+      observer.disconnect();
+      window.removeEventListener('resize', resize);
+      window.visualViewport?.removeEventListener('resize', resize);
+    };
   }, []);
 
   useEffect(() => {
@@ -1218,7 +1227,8 @@ export default function TvMenuGenerator({
               ref={tvRef}
               className={`tv-canvas${exportTemplate ? ' is-export-template' : ''}`}
               style={{
-                transform: `scale(${previewScale})`,
+                transform: `scale(${previewScale ?? 0})`,
+                visibility: previewScale === null ? 'hidden' : 'visible',
                 backgroundImage: `url('${publicBase}/assets/noise-bg-tv.png')`,
               }}
             >
