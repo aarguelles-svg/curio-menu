@@ -1,6 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { Session } from '@supabase/supabase-js';
 import {
   Captions,
@@ -657,73 +664,105 @@ function DrinksCard({
       item.section === 'cold' &&
       (!hidePlaceholders || hasDrinkItemContent(item)),
   );
+  const cardRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [isCompact, setIsCompact] = useState(false);
+  const contentKey = items
+    .map(
+      (item) =>
+        `${item.id}:${item.name}:${item.subtitle}:${item.showSubtitle}:${item.price}:${item.coldPrice}`,
+    )
+    .join('|');
+
+  useLayoutEffect(() => {
+    setIsCompact(false);
+  }, [contentKey, hidePlaceholders]);
+
+  useLayoutEffect(() => {
+    if (isCompact) return;
+    const card = cardRef.current;
+    const content = contentRef.current;
+    if (!card || !content) return;
+    const frame = requestAnimationFrame(() => {
+      const availableHeight = card.clientHeight - 78 - 30;
+      if (content.scrollHeight > availableHeight) setIsCompact(true);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [contentKey, hidePlaceholders, isCompact]);
+
   return (
-    <div className="tv-menu-card tv-drinks-card">
+    <div
+      ref={cardRef}
+      className={`tv-menu-card tv-drinks-card${isCompact ? ' is-compact' : ''}`}
+    >
       <div className="tv-card-title">COFFEE</div>
-      <div className="tv-drinks-heading">
-        <span />
-        <b>HOT</b>
-        <b>COLD</b>
-      </div>
-      <div className="tv-drink-list tv-coffee-list">
-        {coffee.map((item, index) => (
-          <div className="tv-drink-row tv-coffee-row" key={item.id}>
-            <div>
-              <strong className={item.name ? '' : 'is-placeholder'}>
-                {item.name || (hidePlaceholders ? '' : `Coffee ${index + 1}`)}
-              </strong>
-              {item.showSubtitle && (
-                <small className={item.subtitle ? '' : 'is-placeholder'}>
-                  {item.subtitle || (hidePlaceholders ? '' : 'Subtitle')}
-                </small>
-              )}
-            </div>
-            <span className={item.price ? '' : 'is-placeholder'}>
-              {item.price ? `P${item.price}` : hidePlaceholders ? '' : 'P-'}
-            </span>
-            <span className={item.coldPrice ? '' : 'is-placeholder'}>
-              {item.coldPrice
-                ? `P${item.coldPrice}`
-                : hidePlaceholders
-                  ? ''
-                  : 'P-'}
-            </span>
-          </div>
-        ))}
-      </div>
-      <div className="tv-cold-title">COLD DRINKS</div>
-      <div className="tv-drink-list tv-cold-list">
-        {cold.map((item, index) => (
-          <div className="tv-drink-row tv-cold-row" key={item.id}>
-            <div>
-              <strong className={item.name ? '' : 'is-placeholder'}>
-                {item.name ||
-                  (hidePlaceholders ? '' : `Cold drink ${index + 1}`)}
-              </strong>
-              {item.showSubtitle && (
-                <small className={item.subtitle ? '' : 'is-placeholder'}>
-                  {item.subtitle || (hidePlaceholders ? '' : 'Subtitle')}
-                </small>
-              )}
-            </div>
-            <span className={item.price ? '' : 'is-placeholder'}>
-              {item.showSecondPrice
-                ? hidePlaceholders
-                  ? [
-                      item.price ? `P${item.price}` : '',
-                      item.coldPrice ? `P${item.coldPrice}` : '',
-                    ]
-                      .filter(Boolean)
-                      .join('/')
-                  : `${item.price ? `P${item.price}` : 'P-'}/${item.coldPrice ? `P${item.coldPrice}` : 'P-'}`
-                : item.price
-                  ? `P${item.price}`
+      <div className="tv-drinks-content" ref={contentRef}>
+        <div className="tv-drinks-heading">
+          <span />
+          <b>HOT</b>
+          <b>COLD</b>
+        </div>
+        <div className="tv-drink-list tv-coffee-list">
+          {coffee.map((item, index) => (
+            <div className="tv-drink-row tv-coffee-row" key={item.id}>
+              <div>
+                <strong className={item.name ? '' : 'is-placeholder'}>
+                  {item.name ||
+                    (hidePlaceholders ? '' : `Coffee ${index + 1}`)}
+                </strong>
+                {item.showSubtitle && (
+                  <small className={item.subtitle ? '' : 'is-placeholder'}>
+                    {item.subtitle || (hidePlaceholders ? '' : 'Subtitle')}
+                  </small>
+                )}
+              </div>
+              <span className={item.price ? '' : 'is-placeholder'}>
+                {item.price ? `P${item.price}` : hidePlaceholders ? '' : 'P-'}
+              </span>
+              <span className={item.coldPrice ? '' : 'is-placeholder'}>
+                {item.coldPrice
+                  ? `P${item.coldPrice}`
                   : hidePlaceholders
                     ? ''
                     : 'P-'}
-            </span>
-          </div>
-        ))}
+              </span>
+            </div>
+          ))}
+        </div>
+        <div className="tv-cold-title">COLD DRINKS</div>
+        <div className="tv-drink-list tv-cold-list">
+          {cold.map((item, index) => (
+            <div className="tv-drink-row tv-cold-row" key={item.id}>
+              <div>
+                <strong className={item.name ? '' : 'is-placeholder'}>
+                  {item.name ||
+                    (hidePlaceholders ? '' : `Cold drink ${index + 1}`)}
+                </strong>
+                {item.showSubtitle && (
+                  <small className={item.subtitle ? '' : 'is-placeholder'}>
+                    {item.subtitle || (hidePlaceholders ? '' : 'Subtitle')}
+                  </small>
+                )}
+              </div>
+              <span className={item.price ? '' : 'is-placeholder'}>
+                {item.showSecondPrice
+                  ? hidePlaceholders
+                    ? [
+                        item.price ? `P${item.price}` : '',
+                        item.coldPrice ? `P${item.coldPrice}` : '',
+                      ]
+                        .filter(Boolean)
+                        .join('/')
+                    : `${item.price ? `P${item.price}` : 'P-'}/${item.coldPrice ? `P${item.coldPrice}` : 'P-'}`
+                  : item.price
+                    ? `P${item.price}`
+                    : hidePlaceholders
+                      ? ''
+                      : 'P-'}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

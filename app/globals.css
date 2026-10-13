@@ -1105,6 +1105,29 @@ h3 {
 .tv-cold-row:last-child {
   border-bottom: 0;
 }
+.tv-drinks-card.is-compact {
+  padding-top: 76px;
+  padding-bottom: 26px;
+}
+.tv-drinks-card.is-compact .tv-drinks-heading {
+  height: 62px;
+}
+.tv-drinks-card.is-compact .tv-drink-row {
+  min-height: 62px;
+  padding-top: 7px;
+  padding-bottom: 7px;
+  line-height: 1.16;
+}
+.tv-drinks-card.is-compact .tv-drink-row > div {
+  gap: 3px;
+}
+.tv-drinks-card.is-compact .tv-cold-title {
+  height: 82px;
+  margin-top: 30px;
+}
+.tv-drinks-card.is-compact .tv-cold-list {
+  margin-top: 14px;
+}
 .tv-media-card,
 .tv-social-card {
   position: absolute;
