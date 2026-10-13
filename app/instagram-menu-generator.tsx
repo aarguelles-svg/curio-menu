@@ -17,6 +17,9 @@ import type { MenuItem } from './menu-types';
 
 const publicBase = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 const maxMenuItems = 12;
+const instagramVariantsKey = 'curio-instagram-variants-v1';
+
+type InstagramStoryType = 'daily' | 'grab-go' | 'desserts';
 
 function menuPrice(item: MenuItem) {
   const first = item.price ? `P${item.price}` : 'P-';
@@ -24,11 +27,34 @@ function menuPrice(item: MenuItem) {
   return `${first}/${item.secondPrice ? `P${item.secondPrice}` : 'P-'}`;
 }
 
-const initialItems: MenuItem[] = Array.from({ length: 8 }, (_, index) => ({
-  id: index + 1,
-  name: '',
-  price: '',
-}));
+const blankItems = (count: number): MenuItem[] =>
+  Array.from({ length: count }, (_, index) => ({
+    id: index + 1,
+    name: '',
+    price: '',
+    secondPrice: '',
+    showSecondPrice: false,
+  }));
+
+const initialItems = blankItems(8);
+
+function normalizeVariantItems(value: unknown, fallbackCount: number) {
+  if (!Array.isArray(value) || !value.length) return blankItems(fallbackCount);
+  return value.slice(0, maxMenuItems).map((entry, index) => {
+    const item = entry as Partial<MenuItem> | null;
+    return {
+      id: index + 1,
+      name: typeof item?.name === 'string' ? item.name : '',
+      price:
+        typeof item?.price === 'string' ? item.price.replace(/\D/g, '') : '',
+      secondPrice:
+        typeof item?.secondPrice === 'string'
+          ? item.secondPrice.replace(/\D/g, '')
+          : '',
+      showSecondPrice: Boolean(item?.showSecondPrice),
+    };
+  });
+}
 
 function formatToday() {
   return new Intl.DateTimeFormat('en-US', {
@@ -38,12 +64,20 @@ function formatToday() {
 }
 
 export default function InstagramMenuGenerator({
-  items,
-  setItems,
+  items: dailyItems,
+  setItems: setDailyItems,
 }: {
   items: MenuItem[];
   setItems: React.Dispatch<React.SetStateAction<MenuItem[]>>;
 }) {
+  const [storyType, setStoryType] = useState<InstagramStoryType>('daily');
+  const [grabGoItems, setGrabGoItems] = useState<MenuItem[]>(() =>
+    blankItems(10),
+  );
+  const [dessertItems, setDessertItems] = useState<MenuItem[]>(() =>
+    blankItems(6),
+  );
+  const [variantsLoaded, setVariantsLoaded] = useState(false);
   const [date, setDate] = useState(formatToday);
   const [category, setCategory] = useState('MAINS');
   const [phone, setPhone] = useState('+63 917 102 0722');
@@ -57,13 +91,67 @@ export default function InstagramMenuGenerator({
   const viewportRef = useRef<HTMLDivElement>(null);
   const storyRef = useRef<HTMLElement>(null);
   const menuListRef = useRef<HTMLDivElement>(null);
+  const items =
+    storyType === 'grab-go'
+      ? grabGoItems
+      : storyType === 'desserts'
+        ? dessertItems
+        : dailyItems;
+  const setItems =
+    storyType === 'grab-go'
+      ? setGrabGoItems
+      : storyType === 'desserts'
+        ? setDessertItems
+        : setDailyItems;
+  const isSpecialMenu = storyType !== 'daily';
+  const displayCategory =
+    storyType === 'grab-go'
+      ? 'GRAB & GO'
+      : storyType === 'desserts'
+        ? 'DESSERTS'
+        : category || 'MAINS';
   const nextId = useMemo(
     () => Math.max(0, ...items.map((item) => item.id)) + 1,
     [items],
   );
   const storyItemCount = Math.max(items.length, 1);
-  const menuHeight = 172 + menuContentHeight;
-  const cardTop = 346 - (menuHeight - 1068) / 2;
+  const menuHeight =
+    (storyType === 'desserts' ? 240 : 172) + menuContentHeight;
+  const cardTop = isSpecialMenu
+    ? 940 - menuHeight / 2
+    : 346 - (menuHeight - 1068) / 2;
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(
+        window.localStorage.getItem(instagramVariantsKey) ?? 'null',
+      ) as {
+        storyType?: unknown;
+        grabGoItems?: unknown;
+        dessertItems?: unknown;
+      } | null;
+      if (
+        saved?.storyType === 'daily' ||
+        saved?.storyType === 'grab-go' ||
+        saved?.storyType === 'desserts'
+      )
+        setStoryType(saved.storyType);
+      setGrabGoItems(normalizeVariantItems(saved?.grabGoItems, 10));
+      setDessertItems(normalizeVariantItems(saved?.dessertItems, 6));
+    } catch {
+      setGrabGoItems(blankItems(10));
+      setDessertItems(blankItems(6));
+    }
+    setVariantsLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!variantsLoaded) return;
+    window.localStorage.setItem(
+      instagramVariantsKey,
+      JSON.stringify({ storyType, grabGoItems, dessertItems }),
+    );
+  }, [storyType, grabGoItems, dessertItems, variantsLoaded]);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -166,7 +254,8 @@ export default function InstagramMenuGenerator({
             setDate(value.date);
             setCategory(value.category);
             setPhone(value.phone);
-            setItems(normalized);
+            setStoryType('daily');
+            setDailyItems(normalized);
             return { status: 'updated', itemCount: normalized.length };
           },
         },
@@ -246,7 +335,9 @@ export default function InstagramMenuGenerator({
         style: { transform: 'none' },
       });
       const link = document.createElement('a');
-      link.download = `${(date || 'daily').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-menu.png`;
+      const fileLabel =
+        storyType === 'daily' ? date || 'daily' : displayCategory;
+      link.download = `${fileLabel.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-menu.png`;
       link.href = dataUrl;
       link.click();
     } finally {
@@ -278,7 +369,7 @@ export default function InstagramMenuGenerator({
           <div className="story-viewport" ref={viewportRef}>
             <article
               ref={storyRef}
-              className="story"
+              className={`story story--${storyType}`}
               style={
                 {
                   transform: `scale(${previewScale})`,
@@ -291,15 +382,19 @@ export default function InstagramMenuGenerator({
               aria-label="Generated daily menu preview"
             >
               <div className="menu-card">
-                <div className="menu-title">
-                  <span>{date || '[DATE]'} MENU</span>
-                  <strong>{category || 'MAINS'}</strong>
+                <div
+                  className={`menu-title${isSpecialMenu ? ' is-single-line' : ''}`}
+                >
+                  {!isSpecialMenu && <span>{date || '[DATE]'} MENU</span>}
+                  <strong>{displayCategory}</strong>
                 </div>
-                <img
-                  className="wave-mascot"
-                  src={`${publicBase}/assets/wave-mascot.png`}
-                  alt="Waving mascot"
-                />
+                {storyType !== 'desserts' && (
+                  <img
+                    className="wave-mascot"
+                    src={`${publicBase}/assets/wave-mascot.png`}
+                    alt="Waving mascot"
+                  />
+                )}
                 <div className="menu-list" ref={menuListRef}>
                   {items.length ? (
                     items.map((item, index) => (
@@ -353,23 +448,60 @@ export default function InstagramMenuGenerator({
             aria-labelledby="details-heading"
           >
             <div className="section-heading">
-              <h3 id="details-heading">Story details</h3>
+              <div>
+                <h3 id="details-heading">Story type</h3>
+                <p>Choose which Instagram menu you’re creating.</p>
+              </div>
+            </div>
+            <div
+              className="tv-layout-toggle instagram-type-toggle"
+              role="radiogroup"
+              aria-label="Instagram story type"
+            >
+              {(
+                [
+                  ['daily', 'Daily menu'],
+                  ['grab-go', 'Grab & Go'],
+                  ['desserts', 'Desserts'],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={storyType === value}
+                  className={storyType === value ? 'is-active' : ''}
+                  onClick={() => setStoryType(value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="settings-section" aria-label="Story details">
+            <div className="section-heading">
+              <h3>Story details</h3>
             </div>
             <div className="detail-grid">
-              <label>
-                <span>Today’s date</span>
-                <Input
-                  value={date}
-                  onChange={(event) => setDate(event.target.value)}
-                />
-              </label>
-              <label>
-                <span>Category</span>
-                <Input
-                  value={category}
-                  onChange={(event) => setCategory(event.target.value)}
-                />
-              </label>
+              {!isSpecialMenu && (
+                <>
+                  <label>
+                    <span>Today’s date</span>
+                    <Input
+                      value={date}
+                      onChange={(event) => setDate(event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    <span>Category</span>
+                    <Input
+                      value={category}
+                      onChange={(event) => setCategory(event.target.value)}
+                    />
+                  </label>
+                </>
+              )}
               <label className="phone-field">
                 <span>Order phone</span>
                 <Input

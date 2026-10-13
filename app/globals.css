@@ -203,6 +203,9 @@ h3 {
   font-size: 70px;
   letter-spacing: -0.01em;
 }
+.menu-title.is-single-line strong {
+  font-size: 64px;
+}
 .wave-mascot {
   position: absolute;
   z-index: 4;
@@ -291,6 +294,40 @@ h3 {
 }
 .story-contact strong {
   font-size: 46px;
+}
+
+.story--grab-go .menu-card,
+.story--desserts .menu-card {
+  padding-top: 110px;
+}
+.story--grab-go .story-menu-row,
+.story--desserts .story-menu-row {
+  min-height: 93px;
+  padding-top: 17px;
+  padding-bottom: 15px;
+  font-size: 50px;
+}
+.story--grab-go .wave-mascot {
+  top: -300px;
+  right: auto;
+  left: -50px;
+  width: 340px;
+  height: 340px;
+  transform: rotate(-2deg);
+}
+.story--grab-go .point-mascot,
+.story--desserts .point-mascot {
+  top: calc(var(--card-top) + var(--menu-height) - 175px);
+  right: -35px;
+  left: auto;
+  width: 470px;
+  height: 470px;
+  transform: rotate(5deg) scaleX(-1);
+}
+.story--grab-go .story-contact,
+.story--desserts .story-contact {
+  justify-content: center;
+  padding-right: 0;
 }
 
 .editor-pane {
@@ -1313,6 +1350,9 @@ h3 {
   background: white;
   color: var(--orange);
   box-shadow: 0 1px 4px rgb(49 43 39 / 12%);
+}
+.instagram-type-toggle {
+  grid-template-columns: repeat(3, 1fr);
 }
 .drink-editor {
   align-items: start;
